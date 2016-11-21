@@ -1,4 +1,6 @@
 import {makeExecutableSchema} from 'graphql-tools';
+import * as express from 'express';
+import * as graphqlHTTP from 'express-graphql';
 
 var schema = `
 type Author {
@@ -30,7 +32,7 @@ schema {
 const resolveFunctions = {
   Query: {
     posts() {
-      return {id : 1, title : "post 1", author: {id: 1, firstName: "author1"}};
+      return [{id : 1, title : "post 1", author: {id: 1, firstName: "author1"}}];
     },
   },
   Author: {
@@ -49,3 +51,11 @@ const executableSchema = makeExecutableSchema({
   typeDefs: schema,
   resolvers: resolveFunctions,
 });
+
+
+const app = express();
+ app.use('/graphql', graphqlHTTP({
+    schema: executableSchema,
+    graphiql: true,
+  }));
+app.listen(4000, () => console.log('Now browse to localhost:4000/graphql'));
