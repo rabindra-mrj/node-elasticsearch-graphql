@@ -55,37 +55,67 @@ const executableSchema = makeExecutableSchema({
   resolvers: resolveFunctions,
 });
 
-var typebuilder = function (typeName) {
-  var typeDecleration = { typeName, properties: [] };
-  return function (properties) {
-    typeDecleration.properties = properties;
-    return {
-      build() {
-        console.log(typeName);
-        for (let field in typeDecleration.properties) {
-          let prop = typeDecleration.properties[field];
-          if (!field.startsWith("@")) {
-            let fieldType = prop.type;
-            console.log(`${field}:${fieldType}\n`);
-          }
-        }
+var elasticTypeToGraphQLType = { 'text': 'String', 'float': 'Float', 'long': 'Int', 'boolean': 'Boolean', 'date': 'Date' };
+
+class TypeBuilder {
+  typeInfo;
+  constructor(private typeName, properties) {
+    this.typeInfo = { typeName, properties };
+  }
+  get name() {
+    return this.typeInfo.typeName;
+  }
+  build() {
+    var lines = [`type ${this.name} {`];
+    for (let field in this.typeInfo.properties) {
+      let prop = this.typeInfo.properties[field];
+      if (!field.startsWith("@")) {
+        let fieldType = elasticTypeToGraphQLType[prop.type] || prop.type;
+        lines.push(`\t${field}:${fieldType}`);
       }
     }
+    lines.push(`}`);
+    return lines.join('\n');
   }
+}
+
+var SchemaBuilder = function (rootName) {
+  var queryTypeProps = {};
+  var typeBuilders: TypeBuilder[] = [];
+  return {
+    addType(builder: TypeBuilder) {
+      typeBuilders.push(builder);
+    },
+    build() {
+      console.log("typeBuilders: " + typeBuilders.length);
+      var lines = [];
+      for (let builder of typeBuilders) {
+        var name = builder.name;
+        queryTypeProps['all_' + name] = { type: name + '_Collection' };
+        queryTypeProps['get_' + name] = { type: name + '_Info' };
+        lines.push(builder.build());
+      }
+      lines.push(new TypeBuilder(rootName, queryTypeProps).build());
+      console.log(2);
+      lines.push(`schema { query: Query }`);
+      return lines.join('\n');
+    }
+  };
 };
 
 (async function () {
   var response = await fetch(`http://${ELASTIC_HOST}/_cat/indices?h=index,store.size,health&bytes=k&format=json`);
   var result = await response.json();
-  var typeBuilders = [];
+  var schemaBuilder = SchemaBuilder('Query');
   for (let indexInfo of result) {
     let mappingsInfo = await (await fetch(`http://${ELASTIC_HOST}/${indexInfo.index}/_mapping`)).json();
-    mappingsInfo = mappingsInfo[indexInfo.index];
-    for (let type in mappingsInfo.mappings) {
+    let mappingInfo = mappingsInfo[indexInfo.index];
+    for (let type in mappingInfo.mappings) {
       let typeName = indexInfo.index + ((type != 'logs') ? `_${type}` : '');
-      typeBuilders.push(typebuilder(typeName)(mappingsInfo[indexInfo.index].mappings[type].properties));
+      schemaBuilder.addType(new TypeBuilder(typeName, mappingInfo.mappings[type].properties));
     }
   }
+  console.log(schemaBuilder.build());
 })();
 
 const app = express();
