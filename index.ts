@@ -64,6 +64,13 @@ const executableSchema = makeExecutableSchema({
     for (let type in mappingsInfo[indexInfo.index].mappings) {
       let typeName = indexInfo.index + ((type != 'logs') ? `_${type}` : '');
       console.log(typeName);
+      for (let field in mappingsInfo[indexInfo.index].mappings[type].properties) {
+        let prop = mappingsInfo[indexInfo.index].mappings[type].properties[field];
+        if (!field.startsWith("@")) {
+          let fieldType = prop.type;
+          console.log(`${field}:${fieldType}\n`);
+        }
+      }
     }
   }
 })();
