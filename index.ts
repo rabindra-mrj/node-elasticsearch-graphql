@@ -1,6 +1,9 @@
 import {makeExecutableSchema} from 'graphql-tools';
 import * as express from 'express';
 import * as graphqlHTTP from 'express-graphql';
+import fetch from 'node-fetch';
+
+const ELASTIC_HOST = "localhost:9200";
 
 var schema = `
 type Author {
@@ -52,6 +55,11 @@ const executableSchema = makeExecutableSchema({
   resolvers: resolveFunctions,
 });
 
+(async function () {
+  var response = await fetch(`http://${ELASTIC_HOST}/_cat/indices?h=index,store.size,health&bytes=k&format=json`);
+  var result = await response.json();
+  console.log(result);
+})();
 
 const app = express();
  app.use('/graphql', graphqlHTTP({
