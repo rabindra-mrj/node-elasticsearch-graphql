@@ -77,12 +77,13 @@ var typebuilder = function (typeName) {
 (async function () {
   var response = await fetch(`http://${ELASTIC_HOST}/_cat/indices?h=index,store.size,health&bytes=k&format=json`);
   var result = await response.json();
+  var typeBuilders = [];
   for (let indexInfo of result) {
     let mappingsInfo = await (await fetch(`http://${ELASTIC_HOST}/${indexInfo.index}/_mapping`)).json();
     mappingsInfo = mappingsInfo[indexInfo.index];
     for (let type in mappingsInfo.mappings) {
       let typeName = indexInfo.index + ((type != 'logs') ? `_${type}` : '');
-      typebuilder(typeName)(mappingsInfo[indexInfo.index].mappings[type].properties).build();
+      typeBuilders.push(typebuilder(typeName)(mappingsInfo[indexInfo.index].mappings[type].properties));
     }
   }
 })();
