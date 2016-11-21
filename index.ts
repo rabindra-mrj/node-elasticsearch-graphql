@@ -1,4 +1,4 @@
-import {makeExecutableSchema} from 'graphql-tools';
+import { makeExecutableSchema } from 'graphql-tools';
 import * as express from 'express';
 import * as graphqlHTTP from 'express-graphql';
 import fetch from 'node-fetch';
@@ -35,17 +35,17 @@ schema {
 const resolveFunctions = {
   Query: {
     posts() {
-      return [{id : 1, title : "post 1", author: {id: 1, firstName: "author1"}}];
+      return [{ id: 1, title: "post 1", author: { id: 1, firstName: "author1" } }];
     },
   },
   Author: {
     posts(author) {
-      return {id : 1, title : "post 1", author: {id: 1, firstName: "author1"}};
+      return { id: 1, title: "post 1", author: { id: 1, firstName: "author1" } };
     },
   },
   Post: {
     author(post) {
-      return {id: 1, firstName: "author1"};
+      return { id: 1, firstName: "author1" };
     },
   },
 };
@@ -58,12 +58,19 @@ const executableSchema = makeExecutableSchema({
 (async function () {
   var response = await fetch(`http://${ELASTIC_HOST}/_cat/indices?h=index,store.size,health&bytes=k&format=json`);
   var result = await response.json();
-  console.log(result);
+
+  for (let indexInfo of result) {
+    let mappingsInfo = await (await fetch(`http://${ELASTIC_HOST}/${indexInfo.index}/_mapping`)).json();
+    for (let type in mappingsInfo[indexInfo.index].mappings) {
+      let typeName = indexInfo.index + ((type != 'logs') ? `_${type}` : '');
+      console.log(typeName);
+    }
+  }
 })();
 
 const app = express();
- app.use('/graphql', graphqlHTTP({
-    schema: executableSchema,
-    graphiql: true,
-  }));
+app.use('/graphql', graphqlHTTP({
+  schema: executableSchema,
+  graphiql: true,
+}));
 app.listen(4000, () => console.log('Now browse to localhost:4000/graphql'));
