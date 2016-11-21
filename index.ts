@@ -55,22 +55,34 @@ const executableSchema = makeExecutableSchema({
   resolvers: resolveFunctions,
 });
 
+var typebuilder = function (typeName) {
+  var typeDecleration = { typeName, properties: [] };
+  return function (properties) {
+    typeDecleration.properties = properties;
+    return {
+      build() {
+        console.log(typeName);
+        for (let field in typeDecleration.properties) {
+          let prop = typeDecleration.properties[field];
+          if (!field.startsWith("@")) {
+            let fieldType = prop.type;
+            console.log(`${field}:${fieldType}\n`);
+          }
+        }
+      }
+    }
+  }
+};
+
 (async function () {
   var response = await fetch(`http://${ELASTIC_HOST}/_cat/indices?h=index,store.size,health&bytes=k&format=json`);
   var result = await response.json();
-
   for (let indexInfo of result) {
     let mappingsInfo = await (await fetch(`http://${ELASTIC_HOST}/${indexInfo.index}/_mapping`)).json();
-    for (let type in mappingsInfo[indexInfo.index].mappings) {
+    mappingsInfo = mappingsInfo[indexInfo.index];
+    for (let type in mappingsInfo.mappings) {
       let typeName = indexInfo.index + ((type != 'logs') ? `_${type}` : '');
-      console.log(typeName);
-      for (let field in mappingsInfo[indexInfo.index].mappings[type].properties) {
-        let prop = mappingsInfo[indexInfo.index].mappings[type].properties[field];
-        if (!field.startsWith("@")) {
-          let fieldType = prop.type;
-          console.log(`${field}:${fieldType}\n`);
-        }
-      }
+      typebuilder(typeName)(mappingsInfo[indexInfo.index].mappings[type].properties).build();
     }
   }
 })();
