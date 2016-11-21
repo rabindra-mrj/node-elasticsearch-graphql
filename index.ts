@@ -58,7 +58,8 @@ const executableSchema = makeExecutableSchema({
 var elasticTypeToGraphQLType = { 'text': 'String', 'float': 'Float', 'long': 'Int', 'boolean': 'Boolean', 'date': 'Date' };
 
 class TypeBuilder {
-  typeInfo;
+  private typeInfo;
+  resolver;
   constructor(private typeName, properties) {
     this.typeInfo = { typeName, properties };
   }
@@ -67,7 +68,11 @@ class TypeBuilder {
   }
   build() {
     var lines = [`type ${this.name} {`];
+    this.resolver = {};
     for (let field in this.typeInfo.properties) {
+      this.resolver[field] = () => {
+
+      }
       let prop = this.typeInfo.properties[field];
       if (!field.startsWith("@")) {
         let fieldType = elasticTypeToGraphQLType[prop.type] || prop.type;
@@ -82,12 +87,15 @@ class TypeBuilder {
 var SchemaBuilder = function (rootName) {
   var queryTypeProps = {};
   var typeBuilders: TypeBuilder[] = [];
+  var resolver = {};
   return {
+    getResolver() {
+      return resolver;
+    },
     addType(builder: TypeBuilder) {
       typeBuilders.push(builder);
     },
     build() {
-      console.log("typeBuilders: " + typeBuilders.length);
       var lines = [];
       for (let builder of typeBuilders) {
         var name = builder.name;
@@ -95,9 +103,11 @@ var SchemaBuilder = function (rootName) {
         queryTypeProps['get_' + name] = { type: name + '_Info' };
         lines.push(builder.build());
       }
-      lines.push(new TypeBuilder(rootName, queryTypeProps).build());
-      console.log(2);
-      lines.push(`schema { query: Query }`);
+      var queryTypeBuilder = new TypeBuilder(rootName, queryTypeProps);
+      lines.push(queryTypeBuilder.build());
+      resolver[rootName] = queryTypeBuilder.resolver;
+      lines.push(`schema { query: ${rootName} }`);
+
       return lines.join('\n');
     }
   };
@@ -115,7 +125,8 @@ var SchemaBuilder = function (rootName) {
       schemaBuilder.addType(new TypeBuilder(typeName, mappingInfo.mappings[type].properties));
     }
   }
-  console.log(schemaBuilder.build());
+  var schema = schemaBuilder.build();
+  console.log(schemaBuilder.getResolver());
 })();
 
 const app = express();
