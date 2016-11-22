@@ -53,8 +53,8 @@ class TypeBuilder {
     }
 }
 
-var indexSearchResolver = function(indexName, typeName) {
-    return async function(root, args, context, info) {
+var indexSearchResolver = function (indexName, typeName) {
+    return async function (root, args, context, info) {
         args = args || {};
         args.esQuery = args.esQuery || { query: { match_all: {} } };
         context = context || {};
@@ -71,8 +71,8 @@ var indexSearchResolver = function(indexName, typeName) {
     };
 }
 
-var indexGetResolver = function(indexName, typeName) {
-    return async function(root, args, context, info) {
+var indexGetResolver = function (indexName, typeName) {
+    return async function (root, args, context, info) {
         console.log("resolving");
         args = args || {};
         var id = args.id;
@@ -84,14 +84,14 @@ var indexGetResolver = function(indexName, typeName) {
         let path = indexName + '/' + ((typeName != 'logs' && typeName) ? `_${typeName}/` : '');
         let data = await (await fetch(`http://${ELASTIC_HOST}/${path}_search?q=_id:${id}`)).json();
 
-        var result = data.hits.hits.map(hit => hit._source)[0]; 
-        if(!result)
-          throw new Error("No suc data found");
+        var result = data.hits.hits.map(hit => hit._source)[0];
+        if (!result)
+            throw new Error("No suc data found");
         return result;
     };
 }
 
-var SchemaBuilder = function(rootName) {
+var SchemaBuilder = function (rootName) {
     var queryTypeProps = {};
     var typeBuilders: TypeBuilder[] = [];
     var resolver = {};
@@ -124,7 +124,7 @@ var SchemaBuilder = function(rootName) {
 
 const app = express();
 
-(async function() {
+(async function () {
     var response = await fetch(`http://${ELASTIC_HOST}/_cat/indices?h=index,store.size,health&bytes=k&format=json`);
     var result = await response.json();
     var schemaBuilder = SchemaBuilder('Query');
@@ -142,8 +142,18 @@ const app = express();
     ${schemaBuilder.build()}`;
 
     var resolver = schemaBuilder.getResolver();
-    (<any>resolver).Date = GraphQLDateType;
-    (<any>resolver).JSON = GraphQLJSONType;
+    (<any>resolver)['Date'] = GraphQLDateType;
+    (<any>resolver)['JSON'] = {
+        __parseLiteral(val) {
+            return GraphQLJSONType.parseLiteral(val);
+        },
+        __parseValue(val) {
+            return GraphQLJSONType.parseValue(val);
+        },
+        __serialize(val) {
+            return GraphQLJSONType.serialize(val);
+        }
+    };
 
     var executableSchema = makeExecutableSchema({
         typeDefs: schemaDeclaration,
