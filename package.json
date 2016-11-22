@@ -26,6 +26,7 @@
     "graphql": "^0.8.2",
     "graphql-subscriptions": "^0.2.1",
     "graphql-tools": "^0.8.1",
+    "graphql-tools-types": "^1.0.1",
     "node-fetch": "^1.6.3"
   }
 }
