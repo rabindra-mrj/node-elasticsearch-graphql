@@ -8,7 +8,7 @@ import GraphQLJSONType from "./graphql-type-json";
 
 const ELASTIC_HOST = "localhost:9200";
 
-var elasticTypeToGraphQLType = { 'text': 'String', 'float': 'Float', 'long': 'Int', 'boolean': 'Boolean', 'date': 'Date' };
+var elasticTypeToGraphQLType = { 'text': 'String', 'string': 'String', 'float': 'Float', 'long': 'Int', 'double': 'Int', 'boolean': 'Boolean', 'date': 'Date' };
 
 class TypeBuilder {
     private typeInfo;
@@ -130,9 +130,13 @@ const app = express();
     var schemaBuilder = SchemaBuilder('Query');
     for (let indexInfo of result) {
         let mappingsInfo = await (await fetch(`http://${ELASTIC_HOST}/${indexInfo.index}/_mapping`)).json();
+        indexInfo.index = indexInfo.index.replace(".", "_");
         let mappingInfo = mappingsInfo[indexInfo.index];
-        for (let type in mappingInfo.mappings) {
-            schemaBuilder.addType(new TypeBuilder(indexInfo.index, type, false, mappingInfo.mappings[type].properties));
+        for (let type in (mappingInfo || { mappings: [] }).mappings) {
+            
+            if(Object.keys(mappingInfo.mappings[type].properties || {}).length > 0){
+                schemaBuilder.addType(new TypeBuilder(indexInfo.index, type, false, mappingInfo.mappings[type].properties));
+            }
         }
     }
 
